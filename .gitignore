@@ -1,0 +1,42 @@
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+virtualenv/
+*.egg-info
+dist/
+build/
+
+# IDEs e editores
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.log
+*.tmp
+
+# Sistemas operacionais
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Arquivos temporários
+*.tmp
+*.temp
+*.bak
+
+# Assets gerados automaticamente (opcional)
+assets/temp/
+exports/
+screenshots/
+
+# Ambiente virtual (se estiver dentro do projeto)
+# OBS: Se você deixou o venv/ fora da pasta do projeto, pode remover essa linha
+venv/
+env/
+*.sqlite3  # se tiver banco local
