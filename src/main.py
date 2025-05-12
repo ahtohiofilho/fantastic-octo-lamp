@@ -7,7 +7,7 @@ import json
 # Módulos personalizados
 from camera import CameraOrbital
 from shader_utils import load_shader_program
-from poligonos import dicionario_poligonos
+from polygons import dicionario_poligonos
 from geography import definir_geografia
 
 FACTOR = 3
