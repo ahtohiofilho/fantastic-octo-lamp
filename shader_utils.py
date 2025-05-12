@@ -7,8 +7,8 @@ def read_shader_file(filename):
         return f.read()
 
 def load_shader_program():
-    vertex_shader_path = os.path.join("shaders", "vertex_shader.glsl")
-    fragment_shader_path = os.path.join("shaders", "fragment_shader.glsl")
+    vertex_shader_path = os.path.join("shaders", "vertex.glsl")
+    fragment_shader_path = os.path.join("shaders", "fragment.glsl")
 
     vertex_src = read_shader_file(vertex_shader_path)
     fragment_src = read_shader_file(fragment_shader_path)
