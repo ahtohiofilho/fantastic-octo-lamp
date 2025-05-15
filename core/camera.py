@@ -1,4 +1,5 @@
-# camera.py
+# core/camera.py
+
 import glm
 
 class CameraOrbital:

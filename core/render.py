@@ -33,3 +33,31 @@ def configurar_buffers(contexto):
     contexto.total_vertices = offset
 
     return vao
+
+def renderizar_tiles(contexto):
+    glUseProgram(contexto.shader_program)
+    glBindVertexArray(contexto.vao)
+
+    for tile in contexto.tiles:
+        glUniform3f(contexto.color_loc, tile.cor.x, tile.cor.y, tile.cor.z)
+        glDrawArrays(GL_TRIANGLE_FAN, tile.vertex_offset, tile.vertex_count)
+
+    glBindVertexArray(0)
+
+def renderizar_tile_selecionado(contexto):
+    if any(tile.selected for tile in contexto.tiles):
+        glDisable(GL_DEPTH_TEST)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+        glBindVertexArray(contexto.vao)
+        glUniform3f(contexto.color_loc, 1.0, 0.0, 0.0)  # Vermelho transparente
+
+        for tile in contexto.tiles:
+            if tile.selected:
+                glDrawArrays(GL_TRIANGLE_FAN, tile.vertex_offset, tile.vertex_count)
+
+        glBindVertexArray(0)
+
+        glDisable(GL_BLEND)
+        glEnable(GL_DEPTH_TEST)

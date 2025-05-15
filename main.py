@@ -5,7 +5,7 @@ from glm import value_ptr
 import glfw
 from OpenGL.GL import *
 from core.contexto import Contexto
-from core.render import configurar_buffers
+from core.render import configurar_buffers, renderizar_tiles, renderizar_tile_selecionado
 from utils.shader_utils import detect_tile_click
 
 def main():
@@ -45,6 +45,7 @@ def main():
     contexto.view_loc = glGetUniformLocation(contexto.shader_program, "view")
     contexto.proj_loc = glGetUniformLocation(contexto.shader_program, "projection")
     contexto.color_loc = glGetUniformLocation(contexto.shader_program, "tileColor")
+    tile_alpha_loc = glGetUniformLocation(contexto.shader_program, "tileAlpha")
 
     # Callback de mouse para picking
     def mouse_button_callback(window, button, action, mods):
@@ -89,12 +90,10 @@ def main():
         glUniformMatrix4fv(contexto.view_loc, 1, GL_FALSE, glm.value_ptr(view))
         glUniformMatrix4fv(contexto.proj_loc, 1, GL_FALSE, value_ptr(projection))
 
-        # Renderização dos tiles
-        glBindVertexArray(contexto.vao)
-        for tile in contexto.tiles:
-            glUniform3f(contexto.color_loc, tile.cor.x, tile.cor.y, tile.cor.z)
-            glDrawArrays(GL_TRIANGLE_FAN, tile.vertex_offset, tile.vertex_count)
-        glBindVertexArray(0)
+        glUniform1f(tile_alpha_loc, 1.0)
+        renderizar_tiles(contexto)
+        glUniform1f(tile_alpha_loc, 0.75)
+        renderizar_tile_selecionado(contexto)
 
         # Fecha com ESC
         if glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS:

@@ -1,8 +1,8 @@
-# shader_utils.py
+# utils/shader_utils.py
+
 import glm
 from OpenGL.GL import *
 import os
-import numpy as np
 import glfw
 
 def detect_tile_click(window, x, y, contexto):
@@ -12,7 +12,8 @@ def detect_tile_click(window, x, y, contexto):
 
     # Desativa iluminação e usa apenas o shader de picking
     glUseProgram(contexto.picking_shader_program)
-
+    
+    glClearColor(0.0, 0.0, 0.0, 1.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
     # Aplica as matrizes atualizadas
@@ -41,9 +42,21 @@ def detect_tile_click(window, x, y, contexto):
     r, g, b = pixel[0], pixel[1], pixel[2]
     clicked_id = r << 16 | g << 8 | b  # Converte RGB para ID
 
+    # Se for preto, considera como clique fora do planeta
+    if r == 0 and g == 0 and b == 0:
+        for t in contexto.tiles:
+            t.selected = False
+        return
+
     if 0 < clicked_id <= len(contexto.tiles):
         selected_tile = contexto.tiles[clicked_id - 1]
-        print(f"Clicou no tile {selected_tile.chave} - Bioma: {selected_tile.bioma}")
+        for t in contexto.tiles:
+            t.selected = False
+        selected_tile.selected = True
+    else:
+        for t in contexto.tiles:
+            t.selected = False
+    print(f"Clicou no tile {selected_tile.chave} - Bioma: {selected_tile.bioma}")
 
 def read_shader_file(filename):
     with open(filename, 'r') as f:

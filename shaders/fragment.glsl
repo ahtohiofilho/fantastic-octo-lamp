@@ -2,7 +2,8 @@
 out vec4 color;
 
 uniform vec3 tileColor;
+uniform float tileAlpha;
 
 void main() {
-    color = vec4(tileColor, 1.0);
+    color = vec4(tileColor, tileAlpha);
 }
