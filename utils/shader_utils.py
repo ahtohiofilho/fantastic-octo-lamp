@@ -143,6 +143,7 @@ def load_picking_shader_program():
 
 def carregar_textura(arquivo):
     img = Image.open(arquivo).convert("RGBA")
+    img = img.transpose(Image.FLIP_TOP_BOTTOM)
     img_data = np.array(img.getdata(), np.uint8)
 
     texture_id = glGenTextures(1)

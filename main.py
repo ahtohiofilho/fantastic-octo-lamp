@@ -38,10 +38,8 @@ def main():
     # Configurar sprite da unidade
     configurar_sprite(contexto)
 
-    # Carregar textura da unidade
     contexto.unidade_texture = carregar_textura("assets/units/unidade.png")
-
-    # Obter localização do uniform da textura
+    contexto.use_texture_loc = glGetUniformLocation(contexto.shader_program, "useTexture")
     contexto.unit_texture_loc = glGetUniformLocation(contexto.shader_program, "unitTexture")
 
     # Ativa profundidade
@@ -100,9 +98,10 @@ def main():
 
     glfw.set_mouse_button_callback(window, mouse_button_callback)
 
+    width, height = glfw.get_framebuffer_size(window)
+
     # Loop principal
     while not glfw.window_should_close(window):
-        width, height = glfw.get_framebuffer_size(window)
 
         glViewport(0, 0, width, height)
         glClearColor(0.1, 0.1, 0.1, 1.0)
@@ -139,8 +138,11 @@ def main():
         renderizar_tiles(contexto)
         glUniform1f(tile_alpha_loc, 0.75)
         renderizar_tile_selecionado(contexto)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
         glUniform1f(tile_alpha_loc, 1.0)
         renderizar_unidade(contexto, contexto.unidade_atual)
+        glDisable(GL_BLEND)
 
         # Fecha com ESC
         if glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS:

@@ -75,6 +75,7 @@ def renderizar_unidade(contexto, unidade):
     glActiveTexture(GL_TEXTURE0)
     glBindTexture(GL_TEXTURE_2D, contexto.unidade_texture)
     glUniform1i(contexto.unit_texture_loc, 0)
+    glUniform1i(contexto.use_texture_loc, 1)
 
     # Posiciona a unidade no centro do tile
     model = glm.translate(glm.mat4(1.0), glm.vec3(tile.centro.x, tile.centro.y, tile.centro.z + 0.1))
@@ -86,6 +87,7 @@ def renderizar_unidade(contexto, unidade):
 
     glBindTexture(GL_TEXTURE_2D, 0)
     glBindVertexArray(0)
+    glUniform1i(contexto.use_texture_loc, 0)
 
 def configurar_sprite(contexto):
 
