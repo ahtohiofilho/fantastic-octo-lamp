@@ -5,8 +5,9 @@ from glm import value_ptr
 import glfw
 from OpenGL.GL import *
 from core.contexto import Contexto
-from core.render import configurar_buffers, renderizar_tiles, renderizar_tile_selecionado
-from utils.shader_utils import detect_tile_click
+from core.render import *
+from utils.shader_utils import detect_tile_click, carregar_textura
+from core.unidade import Unidade
 
 def main():
     # Inicializa GLFW
@@ -29,8 +30,19 @@ def main():
     # Carrega os tiles com base nos dados de geografia.json
     contexto.carregar_tiles()
 
+    contexto.iniciar_unidade()
+
     # Configura VAO/VBO com todos os vértices dos tiles
     contexto.vao = configurar_buffers(contexto)
+
+    # Configurar sprite da unidade
+    configurar_sprite(contexto)
+
+    # Carregar textura da unidade
+    contexto.unidade_texture = carregar_textura("assets/units/unidade.png")
+
+    # Obter localização do uniform da textura
+    contexto.unit_texture_loc = glGetUniformLocation(contexto.shader_program, "unitTexture")
 
     # Ativa profundidade
     glEnable(GL_DEPTH_TEST)
@@ -52,6 +64,39 @@ def main():
         if button == glfw.MOUSE_BUTTON_LEFT and action == glfw.PRESS:
             x, y = glfw.get_cursor_pos(window)
             detect_tile_click(window, x, y, contexto)
+
+    def mouse_button_callback(window, button, action, mods):
+        if button == glfw.MOUSE_BUTTON_LEFT and action == glfw.PRESS:
+            x, y = glfw.get_cursor_pos(window)
+            detect_tile_click(window, x, y, contexto)
+
+            if contexto.tile_selecionado:
+                destino = contexto.tile_selecionado.chave
+
+                from utils.gameplay_utils import mover_unidade
+                caminho = mover_unidade(contexto, destino)
+
+                if caminho:
+                    # Reduz pontos de movimento conforme o custo de cada aresta
+                    for i in range(len(caminho) - 1):
+                        origem = caminho[i]
+                        proximo = caminho[i+1]
+                        custo = contexto.geografia.edges.get((origem, proximo), {}).get("cust_mob", 1)
+
+                        if contexto.unidade_atual.pontos_de_movimento >= custo:
+                            contexto.unidade_atual.posicao = proximo
+                            contexto.unidade_atual.pontos_de_movimento -= custo
+                        else:
+                            print("Pontos de movimento insuficientes.")
+                            break
+
+            if contexto.tile_selecionado:
+                if hasattr(contexto, 'tile_destino'):
+                    pass
+                    #mover_unidade(contexto, contexto.unidade_atual, contexto.tile_destino.chave)
+                else:
+                    print(f"Selecionado: {contexto.tile_selecionado.chave}")
+                    contexto.tile_destino = contexto.tile_selecionado
 
     glfw.set_mouse_button_callback(window, mouse_button_callback)
 
@@ -94,6 +139,8 @@ def main():
         renderizar_tiles(contexto)
         glUniform1f(tile_alpha_loc, 0.75)
         renderizar_tile_selecionado(contexto)
+        glUniform1f(tile_alpha_loc, 1.0)
+        renderizar_unidade(contexto, contexto.unidade_atual)
 
         # Fecha com ESC
         if glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS:

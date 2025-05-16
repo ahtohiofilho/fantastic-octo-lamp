@@ -5,9 +5,10 @@ import json
 import glm
 from core.tile import Tile
 from core.camera import CameraOrbital
+from core.unidade import Unidade
 from utils.shader_utils import load_shader_program, load_picking_shader_program
-from utils.polygons import dicionario_poligonos
-from utils.geography import definir_geografia
+from utils.poligonos import dicionario_poligonos
+from utils.geografia import definir_geografia
 
 class Contexto:
     def __init__(self, fator=3):
@@ -22,6 +23,16 @@ class Contexto:
         self.vao = None
         self.total_vertices = 0
         self.model = np.identity(4, dtype=np.float32)
+        self.tile_selecionado = None
+
+        self.unidade_atual = None
+
+    def iniciar_unidade(self):
+        """Cria uma unidade na primeira tile válida"""
+        if self.tiles:
+            posicao_inicial = self.tiles[0].chave  # ou um tile específico
+            self.unidade_atual = Unidade(posicao_inicial)
+            print(f"Unidade criada na tile {posicao_inicial}")
 
     def carregar_tiles(self):
         with open("geografia.json", "r") as f:

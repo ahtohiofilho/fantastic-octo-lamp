@@ -1,5 +1,7 @@
 # utils/shader_utils.py
 
+from PIL import Image
+import numpy as np
 import glm
 from OpenGL.GL import *
 import os
@@ -12,7 +14,7 @@ def detect_tile_click(window, x, y, contexto):
 
     # Desativa iluminação e usa apenas o shader de picking
     glUseProgram(contexto.picking_shader_program)
-    
+
     glClearColor(0.0, 0.0, 0.0, 1.0)
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -93,13 +95,22 @@ def load_shader_program():
 def check_compile_errors(shader, shader_type):
     if shader_type != "program":
         success = glGetShaderiv(shader, GL_COMPILE_STATUS)
-        info_log = glGetShaderInfoLog(shader)
+        info_log_length = glGetShaderiv(shader, GL_INFO_LOG_LENGTH)
+        if info_log_length > 1:
+            info_log = glGetShaderInfoLog(shader)
+            print(f"Erro compilando {shader_type} shader:\n{info_log.decode()}")
+        else:
+            info_log = ""
     else:
         success = glGetProgramiv(shader, GL_LINK_STATUS)
-        info_log = glGetProgramInfoLog(shader)
+        info_log_length = glGetProgramiv(shader, GL_INFO_LOG_LENGTH)
+        if info_log_length > 1:
+            info_log = glGetProgramInfoLog(shader, info_log_length)
+            print(f"Erro linkando {shader_type}:\n{info_log.decode()}")
+        else:
+            info_log = ""
 
     if not success:
-        print(f"Erro compilando {shader_type} shader:\n{info_log.decode()}")
         raise RuntimeError(f"Erro no shader {shader_type}")
 
 def load_picking_shader_program():
@@ -129,3 +140,20 @@ def load_picking_shader_program():
     glDeleteShader(fragment_shader)
 
     return shader_program
+
+def carregar_textura(arquivo):
+    img = Image.open(arquivo).convert("RGBA")
+    img_data = np.array(img.getdata(), np.uint8)
+
+    texture_id = glGenTextures(1)
+    glBindTexture(GL_TEXTURE_2D, texture_id)
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, img.width, img.height,
+                  0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+
+    glBindTexture(GL_TEXTURE_2D, 0)
+
+    return texture_id
