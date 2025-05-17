@@ -18,18 +18,18 @@ class Unidade:
         self.movimento_maximo = 5        # pontos de movimento por turno
         self.pontos_de_movimento = self.movimento_maximo
 
-    def mover_unidade(contexto, unidade, destino):
+    def mover_unidade(self, contexto, destino):
         try:
             caminho = networkx.shortest_path(
                 contexto.geografia,
-                source=unidade.posicao,
+                source=self.posicao,
                 target=destino
             )
             for proximo in caminho[1:]:
-                custo_movimento = contexto.geografia.edges.get((proximo, unidade.posicao), {}).get("custo", 1)
-                if unidade.pontos_de_movimento >= custo_movimento:
-                    unidade.posicao = proximo
-                    unidade.pontos_de_movimento -= custo_movimento
+                custo_movimento = contexto.geografia.edges.get((proximo, self.posicao), {}).get("custo", 1)
+                if self.pontos_de_movimento >= custo_movimento:
+                    self.posicao = proximo
+                    self.pontos_de_movimento -= custo_movimento
                 else:
                     print("Custo de movimento excedido.")
                     break

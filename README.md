@@ -2,7 +2,8 @@
 
 Personal project to explore the development of a turn-based strategy game set on the surface of a sphere. The logic is 2D (tile-based, graph-like interactions), but the rendering is in 3D using modern OpenGL techniques.
 
-🎯 Current features:
+## 🎯 Current features:
+
 - Rendering hexagon and pentagon tiles over a spherical mesh
 - Color-coded biomes (`ocean`, `desert`, `prairie`, etc.)
 - Orbital camera controls with zoom and rotation
@@ -10,10 +11,12 @@ Personal project to explore the development of a turn-based strategy game set on
 - Graph-based tile relationships using NetworkX
 - Modular architecture for future expansion
 
-🚧 Future plans:
+## 🚧 Future plans:
+
 - [x] Highlight selected tile visually
-- [ ] Add unit movement and combat
-- [ ] Border highlights for civilizations
+- [ ] Implement full unit movement system
+- [ ] Allow unit pathfinding and terrain cost calculation
+- [ ] Add border highlights for civilizations
 - [ ] HUD/UI overlay for biome info and actions
 - [ ] Save/load system for persistent games
 
@@ -34,11 +37,13 @@ Personal project to explore the development of a turn-based strategy game set on
 /fantastic-octo-lamp
 ├── main.py # Entry point and rendering loop
 ├── core/
+│ ├── contexto.py # Global context and game state
 │ ├── render.py # Main render loop and input handling
-│ ├── tile_manager.py # Manages tile data and selection
-│ ├── shader_manager.py # Loads and switches between shaders
+│ ├── tile.py # Manages tile data and selection
+│ ├── unidade.py # Unit representation and movement
 │ └── camera.py # Orbital camera system
 ├── utils/
+│ ├── gameplay_utils.py # Placeholder for game logic and utilities
 │ ├── polygons.py # Procedural tile generation
 │ ├── geography.py # Biome assignment, graph logic, JSON export
 │ └── shader_utils.py # Shader compilation and picking utilities
@@ -59,13 +64,18 @@ Personal project to explore the development of a turn-based strategy game set on
 ### 🌍 Spherical World Rendering
 - Based on **Goldberg Polyhedron** tiling.
 - Each tile has its own position, biome, and properties (e.g., temperature, elevation).
-- Tiles are rendered efficiently using a single VAO/VBO.
+- Efficient rendering using a single shared VAO/VBO.
 
 ### 🖱️ Mouse Interaction: Tile Selection (Picking)
 - **Color-based picking**: each tile is rendered off-screen with a unique RGB color.
-- On mouse click, the pixel color under the cursor is read using `glReadPixels`.
-- Clicked tile is visually highlighted (e.g., red overlay with transparency).
+- On mouse click, pixel under cursor is read via glReadPixels.
+- Clicked tile is highlighted visually (red transparent overlay).
 - Tile biome and coordinates are printed to console.
+
+### 🧍 Unit Representation
+- Units are represented visually by a textured sprite (.png) placed over a tile.
+- Sprite always faces the camera (currently flat, with billboarding ready to be added).
+- Unit starts on an arbitrary tile and follows basic camera updates.
 
 ### 🕹️ Controls
 
@@ -84,6 +94,7 @@ The project depends on the following Python packages:
 - `glfw==2.9.0` – Windowing and input handling
 - `networkx==3.4.2` – Graph logic for tile relationships
 - `numpy==2.2.5` – Fast numerical operations
+- `pillow==11.2.1` – Image loading for unit sprites and textures
 - `pyglm==2.8.2` – Vector and matrix math for OpenGL rendering
 - `PyOpenGL==3.1.9` – Core OpenGL bindings
 - `PyOpenGL-accelerate==3.1.9` – Optimized versions of PyOpenGL components

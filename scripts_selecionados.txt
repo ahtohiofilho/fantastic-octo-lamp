@@ -1,0 +1,554 @@
+
+# Conteúdo de README.md
+# Sphere-Based Civilization Game
+
+Personal project to explore the development of a turn-based strategy game set on the surface of a sphere. The logic is 2D (tile-based, graph-like interactions), but the rendering is in 3D using modern OpenGL techniques.
+
+## 🎯 Current features:
+
+- Rendering hexagon and pentagon tiles over a spherical mesh
+- Color-coded biomes (`ocean`, `desert`, `prairie`, etc.)
+- Orbital camera controls with zoom and rotation
+- Tile selection via **mouse picking** (color-based raycasting)
+- Graph-based tile relationships using NetworkX
+- Modular architecture for future expansion
+
+## 🚧 Future plans:
+
+- [x] Highlight selected tile visually
+- [ ] Implement full unit movement system
+- [ ] Allow unit pathfinding and terrain cost calculation
+- [ ] Add border highlights for civilizations
+- [ ] HUD/UI overlay for biome info and actions
+- [ ] Save/load system for persistent games
+
+---
+
+## 🔧 Tech Stack
+
+- **Language:** Python
+- **Graphics:** Modern OpenGL (core profile)
+- **Windowing:** GLFW
+- **Math:** GLM (for vectors and matrices)
+- **Graph Logic:** NetworkX (for adjacency, paths, and territorial dynamics)
+
+---
+
+## 📁 Folder Structure
+
+/fantastic-octo-lamp
+├── main.py # Entry point and rendering loop
+├── core/
+│ ├── contexto.py # Global context and game state
+│ ├── render.py # Main render loop and input handling
+│ ├── tile.py # Manages tile data and selection
+│ ├── unidade.py # Unit representation and movement
+│ └── camera.py # Orbital camera system
+├── utils/
+│ ├── gameplay_utils.py # Placeholder for game logic and utilities
+│ ├── polygons.py # Procedural tile generation
+│ ├── geography.py # Biome assignment, graph logic, JSON export
+│ └── shader_utils.py # Shader compilation and picking utilities
+├── shaders/
+│ ├── vertex.glsl # Vertex shader (shared)
+│ ├── fragment.glsl # Fragment shader with per-tile color
+│ ├── picking_vertex.glsl # Vertex shader for mouse picking
+│ └── picking_fragment.glsl # Special fragment shader for mouse picking
+├── data/
+│ └── geografia.json # Generated tile data with biomes and metadata
+├── requirements.txt # Python dependencies
+└── README.md # This file
+
+---
+
+## 🛠 Features Implemented
+
+### 🌍 Spherical World Rendering
+- Based on **Goldberg Polyhedron** tiling.
+- Each tile has its own position, biome, and properties (e.g., temperature, elevation).
+- Efficient rendering using a single shared VAO/VBO.
+
+### 🖱️ Mouse Interaction: Tile Selection (Picking)
+- **Color-based picking**: each tile is rendered off-screen with a unique RGB color.
+- On mouse click, pixel under cursor is read via glReadPixels.
+- Clicked tile is highlighted visually (red transparent overlay).
+- Tile biome and coordinates are printed to console.
+
+### 🧍 Unit Representation
+- Units are represented visually by a textured sprite (.png) placed over a tile.
+- Sprite always faces the camera (currently flat, with billboarding ready to be added).
+- Unit starts on an arbitrary tile and follows basic camera updates.
+
+### 🕹️ Controls
+
+|    Key    |         Action          |
+|-----------|-------------------------|
+| `↑ ↓ ← →` | Adjust camera pitch/yaw |
+| `=` / `-` |       Zoom in/out       |
+|   `ESC`   |        Quit game        |
+
+---
+
+## 📦 Dependencies
+
+The project depends on the following Python packages:
+
+- `glfw==2.9.0` – Windowing and input handling
+- `networkx==3.4.2` – Graph logic for tile relationships
+- `numpy==2.2.5` – Fast numerical operations
+- `pillow==11.2.1` – Image loading for unit sprites and textures
+- `pyglm==2.8.2` – Vector and matrix math for OpenGL rendering
+- `PyOpenGL==3.1.9` – Core OpenGL bindings
+- `PyOpenGL-accelerate==3.1.9` – Optimized versions of PyOpenGL components
+
+To install all dependencies:
+```bash
+pip install -r requirements.txt
+# Conteúdo de main.py
+# main.py
+
+import glm
+from glm import value_ptr
+import glfw
+from OpenGL.GL import *
+from core.contexto import Contexto
+from core.render import *
+from utils.shader_utils import detect_tile_click, carregar_textura
+from core.unidade import Unidade
+
+def main():
+    # Inicializa GLFW
+    if not glfw.init():
+        raise Exception("Falha ao inicializar GLFW")
+
+    # Cria janela
+    monitor = glfw.get_primary_monitor()
+    mode = glfw.get_video_mode(monitor)
+    window = glfw.create_window(mode.size.width, mode.size.height, "Planeta 3D", monitor, None)
+    if not window:
+        glfw.terminate()
+        raise Exception("Falha ao criar janela")
+
+    glfw.make_context_current(window)
+
+    # Cria o contexto do jogo
+    contexto = Contexto()
+
+    # Carrega os tiles com base nos dados de geografia.json
+    contexto.carregar_tiles()
+
+    contexto.iniciar_unidade()
+
+    # Configura VAO/VBO com todos os vértices dos tiles
+    contexto.vao = configurar_buffers(contexto)
+
+    # Configurar sprite da unidade
+    configurar_sprite(contexto)
+
+    contexto.unidade_texture = carregar_textura("assets/units/unidade.png")
+    contexto.use_texture_loc = glGetUniformLocation(contexto.shader_program, "useTexture")
+    contexto.unit_texture_loc = glGetUniformLocation(contexto.shader_program, "unitTexture")
+
+    # Ativa profundidade
+    glEnable(GL_DEPTH_TEST)
+
+    # Uniform do shader de picking
+    contexto.picking_color_loc = glGetUniformLocation(
+        contexto.picking_shader_program, "pickingColor"
+    )
+
+    # Uniforms do shader principal
+    contexto.model_loc = glGetUniformLocation(contexto.shader_program, "model")
+    contexto.view_loc = glGetUniformLocation(contexto.shader_program, "view")
+    contexto.proj_loc = glGetUniformLocation(contexto.shader_program, "projection")
+    contexto.color_loc = glGetUniformLocation(contexto.shader_program, "tileColor")
+    tile_alpha_loc = glGetUniformLocation(contexto.shader_program, "tileAlpha")
+
+    # Callback de mouse para picking
+    def mouse_button_callback(window, button, action, mods):
+        if button == glfw.MOUSE_BUTTON_LEFT and action == glfw.PRESS:
+            x, y = glfw.get_cursor_pos(window)
+            detect_tile_click(window, x, y, contexto)
+
+    def mouse_button_callback(window, button, action, mods):
+        if button == glfw.MOUSE_BUTTON_LEFT and action == glfw.PRESS:
+            x, y = glfw.get_cursor_pos(window)
+            detect_tile_click(window, x, y, contexto)
+
+            if contexto.tile_selecionado:
+                destino = contexto.tile_selecionado.chave
+
+                caminho = contexto.unidade_atual.mover_unidade(contexto, destino)
+
+                if caminho:
+                    # Reduz pontos de movimento conforme o custo de cada aresta
+                    for i in range(len(caminho) - 1):
+                        origem = caminho[i]
+                        proximo = caminho[i+1]
+                        custo = contexto.geografia.edges.get((origem, proximo), {}).get("cust_mob", 1)
+
+                        if contexto.unidade_atual.pontos_de_movimento >= custo:
+                            contexto.unidade_atual.posicao = proximo
+                            contexto.unidade_atual.pontos_de_movimento -= custo
+                        else:
+                            print("Pontos de movimento insuficientes.")
+                            break
+
+            if contexto.tile_selecionado:
+                if hasattr(contexto, 'tile_destino'):
+                    pass
+                    #mover_unidade(contexto, contexto.unidade_atual, contexto.tile_destino.chave)
+                else:
+                    print(f"Selecionado: {contexto.tile_selecionado.chave}")
+                    contexto.tile_destino = contexto.tile_selecionado
+
+    glfw.set_mouse_button_callback(window, mouse_button_callback)
+
+    width, height = glfw.get_framebuffer_size(window)
+
+    # Loop principal
+    while not glfw.window_should_close(window):
+
+        glViewport(0, 0, width, height)
+        glClearColor(0.1, 0.1, 0.1, 1.0)
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+
+        # Controles de câmera
+        if glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS:
+            contexto.camera.pitch += 1.5
+        if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
+            contexto.camera.pitch -= 1.5
+        if glfw.get_key(window, glfw.KEY_LEFT) == glfw.PRESS:
+            contexto.camera.yaw += 1.5
+        if glfw.get_key(window, glfw.KEY_RIGHT) == glfw.PRESS:
+            contexto.camera.yaw -= 1.5
+        if glfw.get_key(window, glfw.KEY_EQUAL) == glfw.PRESS:
+            contexto.camera.radius -= 0.1
+        if glfw.get_key(window, glfw.KEY_MINUS) == glfw.PRESS:
+            contexto.camera.radius += 0.1
+
+        contexto.camera.pitch = max(-90.0, min(90.0, contexto.camera.pitch))
+        contexto.camera.update()
+
+        # Matrizes de transformação
+        model = contexto.model
+        view = contexto.camera.get_view_matrix()
+        projection = contexto.camera.get_projection_matrix(width, height)
+
+        glUseProgram(contexto.shader_program)
+        glUniformMatrix4fv(contexto.model_loc, 1, GL_FALSE, model)
+        glUniformMatrix4fv(contexto.view_loc, 1, GL_FALSE, glm.value_ptr(view))
+        glUniformMatrix4fv(contexto.proj_loc, 1, GL_FALSE, value_ptr(projection))
+
+        glUniform1f(tile_alpha_loc, 1.0)
+        renderizar_tiles(contexto)
+        glUniform1f(tile_alpha_loc, 1.0)
+        renderizar_tile_selecionado(contexto)
+        glEnable(GL_BLEND)
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        glUniform1f(tile_alpha_loc, 1.0)
+        renderizar_unidade(contexto, contexto.unidade_atual)
+        glDisable(GL_BLEND)
+
+        # Fecha com ESC
+        if glfw.get_key(window, glfw.KEY_ESCAPE) == glfw.PRESS:
+            glfw.set_window_should_close(window, True)
+
+        glfw.swap_buffers(window)
+        glfw.poll_events()
+
+    glfw.terminate()
+
+if __name__ == "__main__":
+    main()
+# Conteúdo de core/camera.py
+# core/camera.py
+
+import glm
+
+class CameraOrbital:
+    def __init__(self, center=(0.0, 0.0, 0.0), radius=10.0, pitch=20.0, yaw=0.0):
+        self.center = glm.vec3(center)
+        self.radius = radius  # distância do centro
+        self.pitch = pitch    # ângulo vertical
+        self.yaw = yaw        # ângulo horizontal
+        self.speed = 0.5      # velocidade de rotação e zoom
+        self.position = glm.vec3(0.0, 0.0, 0.0)
+
+        # Atualiza posição inicial
+        self.update()
+
+    def update(self):
+        """Atualiza a posição da câmera com base no pitch/yaw/radius"""
+        self.position.x = self.center.x + self.radius * glm.cos(glm.radians(self.pitch)) * glm.cos(glm.radians(self.yaw))
+        self.position.y = self.center.y + self.radius * glm.sin(glm.radians(self.pitch))
+        self.position.z = self.center.z + self.radius * glm.cos(glm.radians(self.pitch)) * glm.sin(glm.radians(self.yaw))
+
+    def get_view_matrix(self):
+        """Retorna a matriz de view (glm.lookAt)"""
+        return glm.lookAt(self.position, self.center, glm.vec3(0.0, 1.0, 0.0))
+
+    def get_projection_matrix(self, width, height):
+        """Retorna a matriz de projeção perspectiva"""
+        aspect = width / height if height != 0 else 1
+        return glm.perspective(glm.radians(60.0), aspect, 0.1, 1000.0)
+# Conteúdo de core/contexto.py
+# core/contexto.py
+
+import numpy as np
+import json
+import glm
+from core.tile import Tile
+from core.camera import CameraOrbital
+from core.unidade import Unidade
+from utils.shader_utils import load_shader_program, load_picking_shader_program
+from utils.poligonos import dicionario_poligonos
+from utils.geografia import definir_geografia
+
+class Contexto:
+    def __init__(self, fator=3):
+        self.fator = fator
+        self.poligonos = dicionario_poligonos(fator)
+        self.geografia, self.numero_civilizacoes = definir_geografia(self.poligonos, fator)
+        self.tiles = []
+        self.camera = CameraOrbital()
+        self.shader_program = load_shader_program()
+        self.picking_shader_program = load_picking_shader_program()
+        self.picking_color_loc = None  # Definido após carregar shader
+        self.vao = None
+        self.total_vertices = 0
+        self.model = np.identity(4, dtype=np.float32)
+        self.tile_selecionado = None
+
+        self.unidade_atual = None
+
+    def iniciar_unidade(self):
+        """Cria uma unidade na primeira tile válida"""
+        if self.tiles:
+            posicao_inicial = self.tiles[0].chave  # ou um tile específico
+            self.unidade_atual = Unidade(posicao_inicial)
+            print(f"Unidade criada na tile {posicao_inicial}")
+
+    def carregar_tiles(self):
+        with open("geografia.json", "r") as f:
+            data = json.load(f)
+
+        for node in data["nodes"]:
+            if "bioma" not in node or "cor_bioma" not in node:
+                continue
+
+            chave = tuple(node["id"])
+            if chave not in self.poligonos:
+                continue
+
+            polygon_vertices = self.poligonos[chave]
+            vertices = [glm.vec3(*v) for v in polygon_vertices]
+            cor = tuple(c/255.0 for c in node["cor_bioma"])
+            tile = Tile(vertices=vertices, chave=chave, bioma=node["bioma"], cor=glm.vec3(*cor))
+            self.tiles.append(tile)
+# Conteúdo de core/render.py
+# core/render.py
+
+import glm
+from OpenGL.GL import *
+import numpy as np
+
+def configurar_buffers(contexto):
+    total_vertices = []
+    for tile in contexto.tiles:
+        for v in tile.vertices:
+            total_vertices.extend([v.x, v.y, v.z])
+
+    vertices_np = np.array(total_vertices, dtype=np.float32)
+
+    vao = glGenVertexArrays(1)
+    vbo = glGenBuffers(1)
+
+    glBindVertexArray(vao)
+    glBindBuffer(GL_ARRAY_BUFFER, vbo)
+    glBufferData(GL_ARRAY_BUFFER, vertices_np.nbytes, vertices_np, GL_STATIC_DRAW)
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
+    glEnableVertexAttribArray(0)
+    glBindBuffer(GL_ARRAY_BUFFER, 0)
+    glBindVertexArray(0)
+
+    # Atribuir offsets para picking e desenhar
+    offset = 0
+    for tile in contexto.tiles:
+        tile.vertex_offset = offset
+        offset += tile.vertex_count
+
+    contexto.vao = vao
+    contexto.total_vertices = offset
+
+    return vao
+
+def renderizar_tiles(contexto):
+    glUseProgram(contexto.shader_program)
+    glBindVertexArray(contexto.vao)
+
+    for tile in contexto.tiles:
+        if not tile.selected:
+            glUniform3f(contexto.color_loc, tile.cor.x, tile.cor.y, tile.cor.z)
+            glDrawArrays(GL_TRIANGLE_FAN, tile.vertex_offset, tile.vertex_count)
+
+    glBindVertexArray(0)
+
+def renderizar_tile_selecionado(contexto):
+    # Filtra apenas os tiles selecionados
+    tiles_selecionados = list(filter(lambda tile: tile.selected, contexto.tiles))
+
+    if not tiles_selecionados:
+        return  # Nenhum tile selecionado, evita chamadas desnecessárias
+
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+
+    glBindVertexArray(contexto.vao)
+    glUniform3f(contexto.color_loc, 1.0, 0.0, 0.0)  # Vermelho transparente
+
+    for tile in tiles_selecionados:
+        glDrawArrays(GL_TRIANGLE_FAN, tile.vertex_offset, tile.vertex_count)
+
+    glBindVertexArray(0)
+
+    glDisable(GL_BLEND)
+
+
+def renderizar_unidade(contexto, unidade):
+    tile = next((t for t in contexto.tiles if t.chave == unidade.posicao), None)
+    if not tile:
+        return
+
+    glUseProgram(contexto.shader_program)
+    glBindVertexArray(contexto.sprite_vao)
+
+    # Ativa a textura
+    glActiveTexture(GL_TEXTURE0)
+    glBindTexture(GL_TEXTURE_2D, contexto.unidade_texture)
+    glUniform1i(contexto.unit_texture_loc, 0)
+    glUniform1i(contexto.use_texture_loc, 1)
+
+    # Posiciona a unidade no centro do tile
+    model = glm.translate(glm.mat4(1.0), glm.vec3(tile.centro.x, tile.centro.y, tile.centro.z + 0.1))
+    model = glm.scale(model, glm.vec3(0.2))  # Ajuste o tamanho conforme necessário
+
+    glUniformMatrix4fv(contexto.model_loc, 1, GL_FALSE, glm.value_ptr(model))
+
+    glDrawArrays(GL_TRIANGLES, 0, 6)
+
+    glBindTexture(GL_TEXTURE_2D, 0)
+    glBindVertexArray(0)
+    glUniform1i(contexto.use_texture_loc, 0)
+
+def configurar_sprite(contexto):
+
+    # Dados do quad
+    quad_vertices = [
+        -0.5, -0.5, 0.0,
+         0.5, -0.5, 0.0,
+         0.5,  0.5, 0.0,
+
+        -0.5, -0.5, 0.0,
+         0.5,  0.5, 0.0,
+        -0.5,  0.5, 0.0,
+    ]
+    quad_texcoords = [
+        0.0, 0.0,
+        1.0, 0.0,
+        1.0, 1.0,
+
+        0.0, 0.0,
+        1.0, 1.0,
+        0.0, 1.0,
+    ]
+
+    # Gerar VAO e VBOs
+    vao = glGenVertexArrays(1)
+    vbo = glGenBuffers(2)
+
+    glBindVertexArray(vao)
+
+    # VBO para vértices
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[0])
+    glBufferData(GL_ARRAY_BUFFER, np.array(quad_vertices, dtype=np.float32), GL_STATIC_DRAW)
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, None)
+    glEnableVertexAttribArray(0)
+
+    # VBO para coordenadas de textura
+    glBindBuffer(GL_ARRAY_BUFFER, vbo[1])
+    glBufferData(GL_ARRAY_BUFFER, np.array(quad_texcoords, dtype=np.float32), GL_STATIC_DRAW)
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, None)
+    glEnableVertexAttribArray(1)
+
+    # Limpar
+    glBindVertexArray(0)
+
+    # Armazenar no contexto
+    contexto.sprite_vao = vao
+    contexto.sprite_vbo = vbo
+# Conteúdo de core/tile.py
+# core/tile.py
+
+import glm
+
+class Tile:
+    def __init__(self, vertices, chave, bioma="oceano", cor=(1.0, 1.0, 1.0)):
+        self.vertices = vertices  # Lista de glm.vec3
+        self.chave = chave
+        self.bioma = bioma
+        self.cor = cor
+        self.vertex_count = len(vertices)
+        self.vertex_offset = 0  # Definido depois
+        self.selected = False
+
+        # Calcular centro como média dos vértices
+        if self.vertices:
+            soma_x = soma_y = soma_z = 0.0
+            for v in self.vertices:
+                soma_x += v.x
+                soma_y += v.y
+                soma_z += v.z
+            n = len(self.vertices)
+            self.centro = glm.vec3(soma_x / n, soma_y / n, soma_z / n)
+        else:
+            self.centro = glm.vec3(0.0, 0.0, 0.0)
+# Conteúdo de core/unidade.py
+# core/unidade.py
+
+import networkx
+
+class Unidade:
+    def __init__(self, posicao_inicial, tipo="explorador", cor=(1.0, 1.0, 0.0)):
+        """
+        Representa uma unidade no mapa.
+        
+        Args:
+            posicao_inicial (tuple): posição do tile onde a unidade começa (ex: (4,5))
+            tipo (str): tipo da unidade (ex: explorador, soldado)
+            cor (tuple): cor usada para renderizar a unidade
+        """
+        self.posicao = posicao_inicial  # chave do tile atual
+        self.tipo = tipo                 # tipo da unidade
+        self.cor = cor                   # cor visual
+        self.movimento_maximo = 5        # pontos de movimento por turno
+        self.pontos_de_movimento = self.movimento_maximo
+
+    def mover_unidade(self, contexto, destino):
+        try:
+            caminho = networkx.shortest_path(
+                contexto.geografia,
+                source=self.posicao,
+                target=destino
+            )
+            for proximo in caminho[1:]:
+                custo_movimento = contexto.geografia.edges.get((proximo, self.posicao), {}).get("custo", 1)
+                if self.pontos_de_movimento >= custo_movimento:
+                    self.posicao = proximo
+                    self.pontos_de_movimento -= custo_movimento
+                else:
+                    print("Custo de movimento excedido.")
+                    break
+        except networkx.NetworkXNoPath:
+            print("Não há caminho até esse destino.")

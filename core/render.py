@@ -40,28 +40,32 @@ def renderizar_tiles(contexto):
     glBindVertexArray(contexto.vao)
 
     for tile in contexto.tiles:
-        glUniform3f(contexto.color_loc, tile.cor.x, tile.cor.y, tile.cor.z)
-        glDrawArrays(GL_TRIANGLE_FAN, tile.vertex_offset, tile.vertex_count)
+        if not tile.selected:
+            glUniform3f(contexto.color_loc, tile.cor.x, tile.cor.y, tile.cor.z)
+            glDrawArrays(GL_TRIANGLE_FAN, tile.vertex_offset, tile.vertex_count)
 
     glBindVertexArray(0)
 
 def renderizar_tile_selecionado(contexto):
-    if any(tile.selected for tile in contexto.tiles):
-        glDisable(GL_DEPTH_TEST)
-        glEnable(GL_BLEND)
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    # Filtra apenas os tiles selecionados
+    tiles_selecionados = list(filter(lambda tile: tile.selected, contexto.tiles))
 
-        glBindVertexArray(contexto.vao)
-        glUniform3f(contexto.color_loc, 1.0, 0.0, 0.0)  # Vermelho transparente
+    if not tiles_selecionados:
+        return  # Nenhum tile selecionado, evita chamadas desnecessárias
 
-        for tile in contexto.tiles:
-            if tile.selected:
-                glDrawArrays(GL_TRIANGLE_FAN, tile.vertex_offset, tile.vertex_count)
+    glEnable(GL_BLEND)
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
-        glBindVertexArray(0)
+    glBindVertexArray(contexto.vao)
+    glUniform3f(contexto.color_loc, 1.0, 0.0, 0.0)  # Vermelho transparente
 
-        glDisable(GL_BLEND)
-        glEnable(GL_DEPTH_TEST)
+    for tile in tiles_selecionados:
+        glDrawArrays(GL_TRIANGLE_FAN, tile.vertex_offset, tile.vertex_count)
+
+    glBindVertexArray(0)
+
+    glDisable(GL_BLEND)
+
 
 def renderizar_unidade(contexto, unidade):
     tile = next((t for t in contexto.tiles if t.chave == unidade.posicao), None)

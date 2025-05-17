@@ -71,8 +71,7 @@ def main():
             if contexto.tile_selecionado:
                 destino = contexto.tile_selecionado.chave
 
-                from utils.gameplay_utils import mover_unidade
-                caminho = mover_unidade(contexto, destino)
+                caminho = contexto.unidade_atual.mover_unidade(contexto, destino)
 
                 if caminho:
                     # Reduz pontos de movimento conforme o custo de cada aresta
@@ -109,13 +108,13 @@ def main():
 
         # Controles de câmera
         if glfw.get_key(window, glfw.KEY_UP) == glfw.PRESS:
-            contexto.camera.pitch -= 1.5
-        if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
             contexto.camera.pitch += 1.5
+        if glfw.get_key(window, glfw.KEY_DOWN) == glfw.PRESS:
+            contexto.camera.pitch -= 1.5
         if glfw.get_key(window, glfw.KEY_LEFT) == glfw.PRESS:
-            contexto.camera.yaw -= 1.5
-        if glfw.get_key(window, glfw.KEY_RIGHT) == glfw.PRESS:
             contexto.camera.yaw += 1.5
+        if glfw.get_key(window, glfw.KEY_RIGHT) == glfw.PRESS:
+            contexto.camera.yaw -= 1.5
         if glfw.get_key(window, glfw.KEY_EQUAL) == glfw.PRESS:
             contexto.camera.radius -= 0.1
         if glfw.get_key(window, glfw.KEY_MINUS) == glfw.PRESS:
@@ -136,7 +135,7 @@ def main():
 
         glUniform1f(tile_alpha_loc, 1.0)
         renderizar_tiles(contexto)
-        glUniform1f(tile_alpha_loc, 0.75)
+        glUniform1f(tile_alpha_loc, 1.0)
         renderizar_tile_selecionado(contexto)
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
